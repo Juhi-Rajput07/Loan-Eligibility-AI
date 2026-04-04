@@ -3,15 +3,36 @@ import pandas as pd
 import joblib
 import numpy as np
 
-# 1. Files Load Karein
+# 1. SET PAGE CONFIG (Only ONCE at the very top)
+st.set_page_config(
+    page_title="Loan Guard AI",
+    page_icon="🏦",
+    layout="wide",
+    menu_items={
+        'Get Help': None,
+        'Report a bug': None,
+        'About': None
+    }
+)
+
+# 2. HIDE GITHUB ICON & FOOTER
+hide_st_style = """
+            <style>
+            #MainMenu {visibility: hidden;}
+            footer {visibility: hidden;}
+            header {visibility: hidden;}
+            </style>
+            """
+st.markdown(hide_st_style, unsafe_allow_html=True)
+
+# 3. LOAD FILES
 model = joblib.load('loan_model.pkl')
 encoders = joblib.load('encoders.pkl')
 model_columns = joblib.load('model_columns.pkl')
 
-st.set_page_config(page_title="Loan Guard AI", layout="wide")
 st.title("🏦 Loan Eligibility & Fraud Detection System")
 
-# 2. Form Banayein
+# 4. CREATE FORM
 with st.form("prediction_form"):
     st.subheader("Applicant Information")
     col1, col2, col3 = st.columns(3)
@@ -24,7 +45,6 @@ with st.form("prediction_form"):
         
     with col2:
         loan_type = st.selectbox("Loan Type", encoders['loan_type'].classes_)
-        # Dataset ke valid options yahan se aayenge
         loan_purpose = st.selectbox("Purpose of Loan", encoders['purpose_of_loan'].classes_)
         amount = st.number_input("Loan Amount Requested (₹)", value=200000)
         tenure = st.slider("Tenure (Months)", 12, 360, 36)
@@ -40,11 +60,10 @@ with st.form("prediction_form"):
     
     submitted = st.form_submit_button("Assess Loan Risk")
 
-# 3. Prediction Logic
+# 5. PREDICTION LOGIC
 if submitted:
-    with st.spinner('Ai is analyzing the risk factors...'):
+    with st.spinner('AI is analyzing the risk factors...'):
         try:
-            # Saare columns jo model ko chahiye
             data = {
                 'loan_type': loan_type,
                 'loan_amount_requested': amount,
@@ -70,19 +89,15 @@ if submitted:
         
             input_df = pd.DataFrame([data])
             
-            # Encoding (Translator)
             for col, le in encoders.items():
                 if col in input_df.columns:
                     input_df[col] = le.transform(input_df[col].astype(str))
                     
-            # Column Order Match Karein
             input_df = input_df[model_columns]
             
-            # Result Nikalein
             prediction = model.predict(input_df)[0]
             status_label = encoders['loan_status'].inverse_transform([prediction])[0]
             
-            # Result Show Karein
             st.subheader("Analysis Results")
             if status_label.lower() == 'approved' and past_fraud == "No":
                 st.success(f"✅ ELIGIBILITY: {status_label.upper()}")
@@ -97,4 +112,3 @@ if submitted:
                     
         except Exception as e:
             st.error(f"Something went wrong: {e}")
-            st.info("Tip: Make sure you ran 'train_model.py' to generate fresh .pkl files.")
